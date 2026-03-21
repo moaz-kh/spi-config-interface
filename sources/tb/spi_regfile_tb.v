@@ -82,7 +82,7 @@ module spi_regfile_tb;
     // VCD Dump
     //--------------------------------------------------------------------------
     initial begin
-        $dumpfile("spi_regfile_tb.vcd");
+        $dumpfile("sim/waves/spi_regfile_tb.vcd");
         $dumpvars(0, spi_regfile_tb);
     end
 

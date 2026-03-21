@@ -1,0 +1,3 @@
+[submodule "sources/lib/fpga_cdc_lib"]
+	path = sources/lib/fpga_cdc_lib
+	url = https://github.com/moaz-kh/fpga_cdc_lib

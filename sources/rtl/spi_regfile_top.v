@@ -21,10 +21,10 @@ module spi_regfile_top (
     //--------------------------------------------------------------------------
     // Config Outputs (sysclk domain, latched after SPI transaction)
     //--------------------------------------------------------------------------
-    output wire [7:0] cfg_enable,      // addr 0x01
-    output wire [7:0] cfg_clk_div,     // addr 0x02
-    output wire [7:0] cfg_gain,        // addr 0x03
-    output wire [7:0] cfg_mode,        // addr 0x04
+    output reg  [7:0] cfg_enable,      // addr 0x01
+    output reg  [7:0] cfg_clk_div,     // addr 0x02
+    output reg  [7:0] cfg_gain,        // addr 0x03
+    output reg  [7:0] cfg_mode,        // addr 0x04
 
     //--------------------------------------------------------------------------
     // Status Inputs (sysclk domain, synchronized to SCLK for read)
@@ -59,14 +59,33 @@ module spi_regfile_top (
     wire status_fifo_full_sync;
     wire status_error_sync;
 
+    // CS_n synchronized to sysclk domain (for config latching)
+    wire cs_n_synced;
+    reg  cs_n_prev;
+    wire cs_n_rising;
+
+    assign cs_n_rising = cs_n_synced && !cs_n_prev;
+
     //--------------------------------------------------------------------------
-    // Reset Synchronizer
-    // Async assert, sync deassert for SCLK domain
+    // FPGA Power-up Initialization
     //--------------------------------------------------------------------------
-    reset_sync u_reset_sync (
-        .sclk       (sclk),
-        .sys_rst_n  (sys_rst_n),
-        .sclk_rst_n (sclk_rst_n)
+    initial begin
+        cs_n_prev   = 1'b1;
+        cfg_enable  = 8'd0;
+        cfg_clk_div = 8'd0;
+        cfg_gain    = 8'd0;
+        cfg_mode    = 8'd0;
+    end
+
+    //--------------------------------------------------------------------------
+    // Reset Synchronizer (async assert, sync deassert for SCLK domain)
+    //--------------------------------------------------------------------------
+    cdc_reset #(
+        .SYNC_STAGES (2)
+    ) u_reset_sync (
+        .clk         (sclk),
+        .async_rst_n (sys_rst_n),
+        .sync_rst_n  (sclk_rst_n)
     );
 
     //--------------------------------------------------------------------------
@@ -112,44 +131,68 @@ module spi_regfile_top (
 
     //--------------------------------------------------------------------------
     // Config CDC (SPI -> sysclk domain)
-    // 2FF sync cs_n, latch config on rising edge
+    // Synchronize cs_n, latch config on rising edge
     //--------------------------------------------------------------------------
-    cfg_cdc u_cfg_cdc (
-        // System Clock Domain
-        .sys_clk    (sys_clk),
-        .sys_rst_n  (sys_rst_n),
-        // CS_n from SPI
-        .cs_n       (cs_n),
-        // Config Inputs (SCLK domain)
-        .cfg_enable_in  (cfg_enable_raw),
-        .cfg_clk_div_in (cfg_clk_div_raw),
-        .cfg_gain_in    (cfg_gain_raw),
-        .cfg_mode_in    (cfg_mode_raw),
-        // Config Outputs (sysclk domain)
-        .cfg_enable_out  (cfg_enable),
-        .cfg_clk_div_out (cfg_clk_div),
-        .cfg_gain_out    (cfg_gain),
-        .cfg_mode_out    (cfg_mode)
+    cdc_bit #(.SYNC_STAGES(2), .RESET_VALUE(1'b1)) u_sync_cs_n (
+        .clk       (sys_clk),
+        .rst_n     (sys_rst_n),
+        .async_in  (cs_n),
+        .sync_out  (cs_n_synced)
     );
+
+    // CS_n edge detection
+    always @(posedge sys_clk or negedge sys_rst_n) begin
+        if (!sys_rst_n)
+            cs_n_prev <= 1'b1;
+        else
+            cs_n_prev <= cs_n_synced;
+    end
+
+    // Latch config on cs_n rising edge (SPI transaction complete, data stable)
+    always @(posedge sys_clk or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            cfg_enable  <= 8'd0;
+            cfg_clk_div <= 8'd0;
+            cfg_gain    <= 8'd0;
+            cfg_mode    <= 8'd0;
+        end else if (cs_n_rising) begin
+            cfg_enable  <= cfg_enable_raw;
+            cfg_clk_div <= cfg_clk_div_raw;
+            cfg_gain    <= cfg_gain_raw;
+            cfg_mode    <= cfg_mode_raw;
+        end
+    end
 
     //--------------------------------------------------------------------------
     // Status CDC (sysclk -> SCLK domain)
-    // 2FF per bit, continuous sync
+    // Per-bit synchronizer, continuous sync
     //--------------------------------------------------------------------------
-    status_cdc u_status_cdc (
-        // SCLK Domain
-        .sclk       (sclk),
-        .sclk_rst_n (sclk_rst_n),
-        // Status Inputs (sysclk domain)
-        .status_lock_in       (status_lock),
-        .status_fifo_empty_in (status_fifo_empty),
-        .status_fifo_full_in  (status_fifo_full),
-        .status_error_in      (status_error),
-        // Status Outputs (SCLK domain)
-        .status_lock_out       (status_lock_sync),
-        .status_fifo_empty_out (status_fifo_empty_sync),
-        .status_fifo_full_out  (status_fifo_full_sync),
-        .status_error_out      (status_error_sync)
+    cdc_bit #(.SYNC_STAGES(2), .RESET_VALUE(1'b0)) u_sync_lock (
+        .clk       (sclk),
+        .rst_n     (sclk_rst_n),
+        .async_in  (status_lock),
+        .sync_out  (status_lock_sync)
+    );
+
+    cdc_bit #(.SYNC_STAGES(2), .RESET_VALUE(1'b0)) u_sync_fifo_empty (
+        .clk       (sclk),
+        .rst_n     (sclk_rst_n),
+        .async_in  (status_fifo_empty),
+        .sync_out  (status_fifo_empty_sync)
+    );
+
+    cdc_bit #(.SYNC_STAGES(2), .RESET_VALUE(1'b0)) u_sync_fifo_full (
+        .clk       (sclk),
+        .rst_n     (sclk_rst_n),
+        .async_in  (status_fifo_full),
+        .sync_out  (status_fifo_full_sync)
+    );
+
+    cdc_bit #(.SYNC_STAGES(2), .RESET_VALUE(1'b0)) u_sync_error (
+        .clk       (sclk),
+        .rst_n     (sclk_rst_n),
+        .async_in  (status_error),
+        .sync_out  (status_error_sync)
     );
 
 endmodule

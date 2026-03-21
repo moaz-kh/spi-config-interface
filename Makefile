@@ -2,8 +2,8 @@
 # Family-based architecture with iCE40 implementation
 
 PROJECT = spi_regfile
-TOP_MODULE ?= adder
-TESTBENCH ?= adder_tb
+TOP_MODULE ?= spi_regfile_top
+TESTBENCH ?= spi_regfile_tb
 
 # FPGA family configuration - extensible for future families
 FPGA_FAMILY ?= ice40
@@ -105,7 +105,7 @@ help:
 	@echo "  TB_DIR=path         - Override testbench directory (default: $(TB_DIR))"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make sim TOP_MODULE=counter TESTBENCH=counter_tb"
+	@echo "  make sim TOP_MODULE=spi_regfile_top TESTBENCH=spi_regfile_tb"
 	@echo "  make ice40 FPGA_DEVICE=hx8k FPGA_PACKAGE=ct256"
 	@echo ""
 	@echo "Simulation targets:"
@@ -221,7 +221,7 @@ update_list:
 	@echo "# Project: $(PROJECT)" >> $(FILELIST)
 	@echo "" >> $(FILELIST)
 	@echo "# RTL Source Files" >> $(FILELIST)
-	@find $(PWD)/$(RTL_DIR) -name "*.v" -o -name "*.sv" -o -name "*.vhd" -o -name "*.vhdl" | sort >> $(FILELIST) 2>/dev/null || true
+	@find $(PWD)/sources -type f \( -name "*.v" -o -name "*.sv" -o -name "*.vhd" -o -name "*.vhdl" \) ! -path "*/tb/*" ! -name "*_tb.*" ! -name "tb_*" | sort >> $(FILELIST) 2>/dev/null || true
 	@echo "" >> $(FILELIST)
 	@echo "# Testbench Files" >> $(FILELIST)
 	@find $(PWD)/$(TB_DIR) -name "*_tb.v" -o -name "*_tb.sv" -o -name "tb_*.v" -o -name "tb_*.sv" | sort >> $(FILELIST) 2>/dev/null || true
