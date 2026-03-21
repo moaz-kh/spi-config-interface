@@ -10,7 +10,7 @@ SPI Slave + Register File for post-silicon configuration and debug. Verilog impl
 - **RW registers** (0x01-0x7F) for configuration
 - **RO registers** (0x80-0xFF) for status
 - **Version register** at 0x00 (fixed 0x01)
-- **Clock Domain Crossing** (CDC) for config and status signals
+- **Clock Domain Crossing** (CDC) using [fpga_cdc_lib](https://github.com/moaz-kh/fpga_cdc_lib) (`cdc_bit`, `cdc_reset`)
 - **FSM-based** SPI slave design
 - **FPGA-friendly** architecture (no async set+reset)
 
@@ -32,8 +32,10 @@ SPI Slave + Register File for post-silicon configuration and debug. Verilog impl
               +--------------+---------------+
               |                              |
      +--------v---------+           +--------v---------+
-     |     cfg_cdc      |           |    status_cdc    |
-     | (SPI -> sysclk)  |           | (sysclk -> SPI)  |
+     |  cdc_bit (cs_n)  |           |  4x cdc_bit      |
+     |  + edge detect   |           |  (continuous      |
+     |  + config latch  |           |   synchronizers)  |
+     | (SPI -> sysclk)  |           | (sysclk -> SPI)   |
      +--------+---------+           +--------+---------+
               |                              |
               v                              ^
@@ -70,13 +72,11 @@ Read:  [0x00] [ADDR] [DATA]   (Command MSB=0 for read)
 spi-config-interface/
 ├── sources/
 │   ├── rtl/
+│   │   ├── spi_regfile_top.v   # Top-level module (CDC logic inline)
 │   │   ├── spi_slave.v         # SPI slave FSM
-│   │   ├── regfile.v           # Register file
-│   │   ├── cfg_cdc.v           # Config CDC (SPI->sysclk)
-│   │   ├── status_cdc.v        # Status CDC (sysclk->SPI)
-│   │   ├── reset_sync.v        # Reset synchronizer
-│   │   ├── spi_regfile_top.v   # Top-level module
-│   │   └── STD_MODULES.v       # Standard utility modules
+│   │   └── regfile.v           # Register file
+│   ├── lib/
+│   │   └── fpga_cdc_lib/       # CDC library (git submodule)
 │   ├── tb/
 │   │   └── spi_regfile_tb.v    # Comprehensive testbench
 │   └── constraints/            # FPGA constraint files
@@ -118,6 +118,15 @@ All 24 tests passing:
 - Write-to-RO ignored
 - Unmapped address handling
 - Reset behavior
+
+## Dependencies
+
+- [fpga_cdc_lib](https://github.com/moaz-kh/fpga_cdc_lib) — CDC primitives (`cdc_bit`, `cdc_reset`), included as a git submodule
+
+After cloning, initialize the submodule:
+```bash
+git submodule update --init --recursive
+```
 
 ## Requirements
 

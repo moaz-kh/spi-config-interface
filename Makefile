@@ -225,6 +225,9 @@ update_list:
 	@echo "" >> $(FILELIST)
 	@echo "# Testbench Files" >> $(FILELIST)
 	@find $(PWD)/$(TB_DIR) -name "*_tb.v" -o -name "*_tb.sv" -o -name "tb_*.v" -o -name "tb_*.sv" | sort >> $(FILELIST) 2>/dev/null || true
+	@echo "" >> $(FILELIST)
+	@echo "# Library Testbench Files" >> $(FILELIST)
+	@find $(PWD)/sources/lib -path "*/tb/*" \( -name "*.v" -o -name "*.sv" \) | sort >> $(FILELIST) 2>/dev/null || true
 	@echo "File list updated: $(FILELIST)"
 	@echo "Found $(shell grep -c '^/' $(FILELIST) 2>/dev/null || echo 0) files"
 
