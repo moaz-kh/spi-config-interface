@@ -7,62 +7,62 @@ module spi_regfile_top (
     //--------------------------------------------------------------------------
     // SPI Interface (Directly to Pads)
     //--------------------------------------------------------------------------
-    input  wire       sclk,
-    input  wire       cs_n,
-    input  wire       mosi,
-    output wire       miso,        // Hi-Z when cs_n high
+    input  logic       sclk,
+    input  logic       cs_n,
+    input  logic       mosi,
+    output logic       miso,        // Hi-Z when cs_n high
 
     //--------------------------------------------------------------------------
     // System Interface
     //--------------------------------------------------------------------------
-    input  wire       sys_clk,
-    input  wire       sys_rst_n,
+    input  logic       sys_clk,
+    input  logic       sys_rst_n,
 
     //--------------------------------------------------------------------------
     // Config Outputs (sysclk domain, latched after SPI transaction)
     //--------------------------------------------------------------------------
-    output reg  [7:0] cfg_enable,      // addr 0x01
-    output reg  [7:0] cfg_clk_div,     // addr 0x02
-    output reg  [7:0] cfg_gain,        // addr 0x03
-    output reg  [7:0] cfg_mode,        // addr 0x04
+    output logic [7:0] cfg_enable,      // addr 0x01
+    output logic [7:0] cfg_clk_div,     // addr 0x02
+    output logic [7:0] cfg_gain,        // addr 0x03
+    output logic [7:0] cfg_mode,        // addr 0x04
 
     //--------------------------------------------------------------------------
     // Status Inputs (sysclk domain, synchronized to SCLK for read)
     //--------------------------------------------------------------------------
-    input  wire       status_lock,        // addr 0x80, bit[0]
-    input  wire       status_fifo_empty,  // addr 0x81, bit[0]
-    input  wire       status_fifo_full,   // addr 0x82, bit[0]
-    input  wire       status_error        // addr 0x83, bit[0]
+    input  logic       status_lock,        // addr 0x80, bit[0]
+    input  logic       status_fifo_empty,  // addr 0x81, bit[0]
+    input  logic       status_fifo_full,   // addr 0x82, bit[0]
+    input  logic       status_error        // addr 0x83, bit[0]
 );
 
     //--------------------------------------------------------------------------
     // Internal Signals
     //--------------------------------------------------------------------------
     // Reset synchronizer output
-    wire sclk_rst_n;
+    logic sclk_rst_n;
 
     // SPI slave to register file interface
-    wire       rf_wr_en;
-    wire [7:0] rf_addr;
-    wire [7:0] rf_wdata;
-    wire [7:0] rf_rdata;
+    logic       rf_wr_en;
+    logic [7:0] rf_addr;
+    logic [7:0] rf_wdata;
+    logic [7:0] rf_rdata;
 
     // Config from regfile (SCLK domain, raw)
-    wire [7:0] cfg_enable_raw;
-    wire [7:0] cfg_clk_div_raw;
-    wire [7:0] cfg_gain_raw;
-    wire [7:0] cfg_mode_raw;
+    logic [7:0] cfg_enable_raw;
+    logic [7:0] cfg_clk_div_raw;
+    logic [7:0] cfg_gain_raw;
+    logic [7:0] cfg_mode_raw;
 
     // Status synchronized to SCLK domain
-    wire status_lock_sync;
-    wire status_fifo_empty_sync;
-    wire status_fifo_full_sync;
-    wire status_error_sync;
+    logic status_lock_sync;
+    logic status_fifo_empty_sync;
+    logic status_fifo_full_sync;
+    logic status_error_sync;
 
     // CS_n synchronized to sysclk domain (for config latching)
-    wire cs_n_synced;
-    reg  cs_n_prev;
-    wire cs_n_rising;
+    logic cs_n_synced;
+    logic cs_n_prev;
+    logic cs_n_rising;
 
     assign cs_n_rising = cs_n_synced && !cs_n_prev;
 
@@ -141,7 +141,7 @@ module spi_regfile_top (
     );
 
     // CS_n edge detection
-    always @(posedge sys_clk or negedge sys_rst_n) begin
+    always_ff @(posedge sys_clk or negedge sys_rst_n) begin
         if (!sys_rst_n)
             cs_n_prev <= 1'b1;
         else
@@ -149,7 +149,7 @@ module spi_regfile_top (
     end
 
     // Latch config on cs_n rising edge (SPI transaction complete, data stable)
-    always @(posedge sys_clk or negedge sys_rst_n) begin
+    always_ff @(posedge sys_clk or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
             cfg_enable  <= 8'd0;
             cfg_clk_div <= 8'd0;

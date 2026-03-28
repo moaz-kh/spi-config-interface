@@ -7,44 +7,46 @@
 
 module spi_slave (
     // SPI Interface
-    input  wire       sclk,
-    input  wire       cs_n,
-    input  wire       mosi,
-    output wire       miso,
+    input  logic       sclk,
+    input  logic       cs_n,
+    input  logic       mosi,
+    output logic       miso,
 
     // Register File Interface
-    output reg        rf_wr_en,
-    output reg  [7:0] rf_addr,
-    output reg  [7:0] rf_wdata,
-    input  wire [7:0] rf_rdata
+    output logic        rf_wr_en,
+    output logic  [7:0] rf_addr,
+    output logic  [7:0] rf_wdata,
+    input  logic  [7:0] rf_rdata
 );
 
     //--------------------------------------------------------------------------
     // Internal Signals
     //--------------------------------------------------------------------------
     // Command byte parameters
-    localparam [7:0] RD_CMD = 8'h00;  // Read command (MSB = 0)
-    localparam [7:0] WR_CMD = 8'h80;  // Write command (MSB = 1)
+    localparam logic [7:0] RD_CMD = 8'h00;  // Read command (MSB = 0)
+    localparam logic [7:0] WR_CMD = 8'h80;  // Write command (MSB = 1)
 
     // RX FSM States
-    localparam [2:0] RX_CMD       = 3'd0;
-    localparam [2:0] RX_RD_ADDR   = 3'd1;
-    localparam [2:0] RX_RD_DATA   = 3'd2;
-    localparam [2:0] RX_WR_ADDR   = 3'd3;
-    localparam [2:0] RX_WR_DATA   = 3'd4;
+    typedef enum logic [2:0] {
+        RX_CMD      = 3'd0,
+        RX_RD_ADDR  = 3'd1,
+        RX_RD_DATA  = 3'd2,
+        RX_WR_ADDR  = 3'd3,
+        RX_WR_DATA  = 3'd4
+    } rx_state_t;
 
     // RX Sequential signals (state registers)
-    reg [2:0] rx_state, rx_state_next;    // Current and next FSM state
-    reg [2:0] bit_cnt, bit_cnt_next;      // Bit counter within current byte (0-7)
-    reg [7:0] mosi_reg, mosi_reg_next;    // Registered MOSI shift register
-    reg [7:0] cmd_reg, cmd_reg_next;      // Captured command byte
-    reg [7:0] rf_addr_reg, rf_addr_next;  // Next address for register file
+    rx_state_t rx_state, rx_state_next;
+    logic [2:0] bit_cnt, bit_cnt_next;      // Bit counter within current byte (0-7)
+    logic [7:0] mosi_reg, mosi_reg_next;    // Registered MOSI shift register
+    logic [7:0] cmd_reg, cmd_reg_next;      // Captured command byte
+    logic [7:0] rf_addr_reg, rf_addr_next;  // Next address for register file
 
     // TX Sequential signals
-    reg [7:0] miso_reg;        // Output shift register
+    logic [7:0] miso_reg;        // Output shift register
 
     // RX Combinational signals
-    wire      byte_complete;
+    logic byte_complete;
     assign byte_complete = (bit_cnt == 3'd7);
 
     //--------------------------------------------------------------------------
@@ -54,7 +56,7 @@ module spi_slave (
         rx_state      = RX_CMD;
         bit_cnt       = 3'd0;
         mosi_reg      = 8'd0;
-        cmd_reg       = 8'd0; 
+        cmd_reg       = 8'd0;
         rf_wr_en      = 1'b0;
         rf_addr       = 8'd0;
         rf_wdata      = 8'd0;
@@ -66,43 +68,43 @@ module spi_slave (
     // Updates state registers from next-state values
     // Asynchronous reset on posedge cs_n (end of transaction)
     //--------------------------------------------------------------------------
-    always @(posedge sclk or posedge cs_n) begin
+    always_ff @(posedge sclk or posedge cs_n) begin
         if (cs_n) begin
             // Transaction ended - async reset to idle state
-            rx_state      <= RX_CMD;
-            bit_cnt       <= 3'd0;
-            mosi_reg      <= 8'd0;
-            cmd_reg       <= 8'd0;
-            rf_addr_reg   <= 8'd0; 
+            rx_state    <= RX_CMD;
+            bit_cnt     <= 3'd0;
+            mosi_reg    <= 8'd0;
+            cmd_reg     <= 8'd0;
+            rf_addr_reg <= 8'd0;
         end else begin
             // Update state registers from next-state logic
-            rx_state      <= rx_state_next;
-            bit_cnt       <= bit_cnt_next;
-            mosi_reg      <= mosi_reg_next;
-            cmd_reg       <= cmd_reg_next;
-            rf_addr_reg   <= rf_addr_next; 
+            rx_state    <= rx_state_next;
+            bit_cnt     <= bit_cnt_next;
+            mosi_reg    <= mosi_reg_next;
+            cmd_reg     <= cmd_reg_next;
+            rf_addr_reg <= rf_addr_next;
         end
     end
 
     //--------------------------------------------------------------------------
     // RX FSM - Combinational Logic (Next State and Outputs)
     //--------------------------------------------------------------------------
-    always @(*) begin
+    always_comb begin
         // Default: hold current state
-        rx_state_next      = rx_state; 
-        mosi_reg_next      = {mosi_reg[6:0], mosi};  // Always shift in MOSI
-        cmd_reg_next       = cmd_reg;
-        rf_addr_next       = rf_addr_reg;
-        rf_addr            = rf_addr_reg;
-        rf_wr_en           = 1'b0;
-        rf_wdata           = 8'b0; 
-        bit_cnt_next       = bit_cnt + 1'b1;
+        rx_state_next = rx_state;
+        mosi_reg_next = {mosi_reg[6:0], mosi};  // Always shift in MOSI
+        cmd_reg_next  = cmd_reg;
+        rf_addr_next  = rf_addr_reg;
+        rf_addr       = rf_addr_reg;
+        rf_wr_en      = 1'b0;
+        rf_wdata      = 8'b0;
+        bit_cnt_next  = bit_cnt + 1'b1;
 
         // FSM State transitions and next-state logic
         case (rx_state)
             RX_CMD: begin
                 // Capture complete command byte
-                cmd_reg_next = {mosi_reg[6:0], mosi}; 
+                cmd_reg_next = {mosi_reg[6:0], mosi};
                 // State transition logic
                 if (byte_complete) begin
                     // Decode command and branch to appropriate path
@@ -113,7 +115,7 @@ module spi_slave (
                     end else begin
                         // Invalid command - return to CMD state
                         rx_state_next = RX_CMD;
-                    end 
+                    end
                 end
             end
 
@@ -140,21 +142,20 @@ module spi_slave (
                 // Read path - data byte (master is clocking out data)
                 if (byte_complete) begin
                     // Stay in RD_DATA state (could extend for multi-byte reads)
-                    rf_addr_next  = rf_addr_reg + 1'b1; // Increment address for potential multi-byte read
-                    rf_addr       = rf_addr_reg + 1'b1;
+                    rf_addr_next = rf_addr_reg + 1'b1; // Increment address for potential multi-byte read
+                    rf_addr      = rf_addr_reg + 1'b1;
                 end
             end
-
 
             RX_WR_DATA: begin
                 // Write path - data byte
                 if (byte_complete) begin
-                    // Capture write data and mark pending   
-                    rf_wr_en        = 1'b1;
-                    rf_wdata        = {mosi_reg[6:0], mosi};
+                    // Capture write data and mark pending
+                    rf_wr_en     = 1'b1;
+                    rf_wdata     = {mosi_reg[6:0], mosi};
                     // Stay in WR_DATA state (could extend for multi-byte writes)
-                    rf_addr_next    = rf_addr_reg + 1'b1; // Increment address for potential multi-byte write
-                end 
+                    rf_addr_next = rf_addr_reg + 1'b1; // Increment address for potential multi-byte write
+                end
             end
 
             default: begin
@@ -163,21 +164,19 @@ module spi_slave (
         endcase
     end
 
- 
-
     //--------------------------------------------------------------------------
     // MISO Output (Falling Edge of SCLK) - SPI Mode 0
     // Timing: MISO changes on falling edge, master samples on next rising edge
     //--------------------------------------------------------------------------
-    always @(negedge sclk or posedge cs_n) begin
+    always_ff @(negedge sclk or posedge cs_n) begin
         if (cs_n) begin
-            miso_reg     <= 8'd0;
+            miso_reg <= 8'd0;
         end else begin
             // For read operations during data byte phase
             if (rx_state == RX_RD_DATA) begin
                 if (bit_cnt == 3'd0) begin
                     // First bit of data byte: output MSB directly, load remaining bits
-                    miso_reg <= rf_rdata; 
+                    miso_reg <= rf_rdata;
                 end else begin
                     // Subsequent bits: output from shift register, then shift
                     miso_reg <= miso_reg << 1;

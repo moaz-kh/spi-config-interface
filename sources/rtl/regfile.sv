@@ -7,44 +7,44 @@
 //==============================================================================
 
 module regfile (
-    input  wire       sclk,
-    input  wire       sclk_rst_n,
+    input  logic       sclk,
+    input  logic       sclk_rst_n,
 
     // SPI Slave Interface
-    input  wire       wr_en,
-    input  wire [7:0] addr,
-    input  wire [7:0] wdata,
-    output reg  [7:0] rdata,
+    input  logic       wr_en,
+    input  logic [7:0] addr,
+    input  logic [7:0] wdata,
+    output logic [7:0] rdata,
 
     // Config Outputs (directly from RW registers)
-    output wire [7:0] cfg_enable,      // addr 0x01
-    output wire [7:0] cfg_clk_div,     // addr 0x02
-    output wire [7:0] cfg_gain,        // addr 0x03
-    output wire [7:0] cfg_mode,        // addr 0x04
+    output logic [7:0] cfg_enable,      // addr 0x01
+    output logic [7:0] cfg_clk_div,     // addr 0x02
+    output logic [7:0] cfg_gain,        // addr 0x03
+    output logic [7:0] cfg_mode,        // addr 0x04
 
     // Status Inputs (synchronized from sysclk domain)
-    input  wire       status_lock,        // addr 0x80, bit[0]
-    input  wire       status_fifo_empty,  // addr 0x81, bit[0]
-    input  wire       status_fifo_full,   // addr 0x82, bit[0]
-    input  wire       status_error        // addr 0x83, bit[0]
+    input  logic       status_lock,        // addr 0x80, bit[0]
+    input  logic       status_fifo_empty,  // addr 0x81, bit[0]
+    input  logic       status_fifo_full,   // addr 0x82, bit[0]
+    input  logic       status_error        // addr 0x83, bit[0]
 );
 
     //--------------------------------------------------------------------------
     // Parameters - Reset Values (USER: Modify as needed)
     //--------------------------------------------------------------------------
-    localparam [7:0] VERSION     = 8'h01;  // Version ID
-    localparam [7:0] RW_RST_01   = 8'h00;  // CFG_ENABLE reset
-    localparam [7:0] RW_RST_02   = 8'h00;  // CFG_CLK_DIV reset
-    localparam [7:0] RW_RST_03   = 8'h00;  // CFG_GAIN reset
-    localparam [7:0] RW_RST_04   = 8'h00;  // CFG_MODE reset
+    localparam logic [7:0] VERSION   = 8'h01;  // Version ID
+    localparam logic [7:0] RW_RST_01 = 8'h00;  // CFG_ENABLE reset
+    localparam logic [7:0] RW_RST_02 = 8'h00;  // CFG_CLK_DIV reset
+    localparam logic [7:0] RW_RST_03 = 8'h00;  // CFG_GAIN reset
+    localparam logic [7:0] RW_RST_04 = 8'h00;  // CFG_MODE reset
 
     //--------------------------------------------------------------------------
     // RW Register Storage
     //--------------------------------------------------------------------------
-    reg [7:0] reg_01;  // CFG_ENABLE
-    reg [7:0] reg_02;  // CFG_CLK_DIV
-    reg [7:0] reg_03;  // CFG_GAIN
-    reg [7:0] reg_04;  // CFG_MODE
+    logic [7:0] reg_01;  // CFG_ENABLE
+    logic [7:0] reg_02;  // CFG_CLK_DIV
+    logic [7:0] reg_03;  // CFG_GAIN
+    logic [7:0] reg_04;  // CFG_MODE
 
     //--------------------------------------------------------------------------
     // FPGA Power-up Initialization
@@ -60,9 +60,8 @@ module regfile (
     //--------------------------------------------------------------------------
     // Write Logic - RW Registers Only (0x01-0x7F)
     // Writes to RO addresses (0x00, 0x80-0xFF) are ignored silently
-    // Triggered by wr_en (asynchronous from cs_n rising edge)
     //--------------------------------------------------------------------------
-    always @(posedge sclk or negedge sclk_rst_n) begin
+    always_ff @(posedge sclk or negedge sclk_rst_n) begin
         if (!sclk_rst_n) begin
             reg_01 <= RW_RST_01;
             reg_02 <= RW_RST_02;
@@ -77,9 +76,7 @@ module regfile (
                     8'h02: reg_02 <= wdata;
                     8'h03: reg_03 <= wdata;
                     8'h04: reg_04 <= wdata;
-                    // Unmapped RW addresses: FFs exist but just store value
-                    // For simplicity, we only implement mapped registers
-                    default: ; // Ignored (could add more registers here)
+                    default: ; // Unmapped RW addresses ignored
                 endcase
             end
             // Writes to 0x00 or 0x80-0xFF are silently ignored
@@ -88,9 +85,8 @@ module regfile (
 
     //--------------------------------------------------------------------------
     // Read Logic - Combinational (no latency)
-    // Data available immediately when address changes
     //--------------------------------------------------------------------------
-    always @(*) begin
+    always_comb begin
         case (addr)
             // Version register (RO exception at 0x00)
             8'h00: rdata = VERSION;
@@ -107,16 +103,7 @@ module regfile (
             8'h82: rdata = {7'b0, status_fifo_full};
             8'h83: rdata = {7'b0, status_error};
 
-            default: begin
-                // Unmapped addresses
-                if (addr[7]) begin
-                    // Unmapped RO (0x80-0xFF): return 0x00
-                    rdata = 8'h00;
-                end else begin
-                    // Unmapped RW (0x05-0x7F): return 0x00
-                    rdata = 8'h00;
-                end
-            end
+            default: rdata = 8'h00;  // Unmapped RW and RO addresses
         endcase
     end
 

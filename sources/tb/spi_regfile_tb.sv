@@ -10,41 +10,41 @@ module spi_regfile_tb;
     //--------------------------------------------------------------------------
     // Parameters
     //--------------------------------------------------------------------------
-    parameter SYS_CLK_PERIOD = 20;   // 50 MHz system clock
-    parameter SPI_CLK_PERIOD = 100;  // 10 MHz SPI clock
+    localparam int SYS_CLK_PERIOD = 20;   // 50 MHz system clock
+    localparam int SPI_CLK_PERIOD = 100;  // 10 MHz SPI clock
 
     //--------------------------------------------------------------------------
     // DUT Signals
     //--------------------------------------------------------------------------
     // SPI Interface
-    reg        sclk;
-    reg        cs_n;
-    reg        mosi;
-    wire       miso;
+    logic        sclk;
+    logic        cs_n;
+    logic        mosi;
+    logic        miso;
 
     // System Interface
-    reg        sys_clk;
-    reg        sys_rst_n;
+    logic        sys_clk;
+    logic        sys_rst_n;
 
     // Config Outputs
-    wire [7:0] cfg_enable;
-    wire [7:0] cfg_clk_div;
-    wire [7:0] cfg_gain;
-    wire [7:0] cfg_mode;
+    logic [7:0]  cfg_enable;
+    logic [7:0]  cfg_clk_div;
+    logic [7:0]  cfg_gain;
+    logic [7:0]  cfg_mode;
 
     // Status Inputs
-    reg        status_lock;
-    reg        status_fifo_empty;
-    reg        status_fifo_full;
-    reg        status_error;
+    logic        status_lock;
+    logic        status_fifo_empty;
+    logic        status_fifo_full;
+    logic        status_error;
 
     //--------------------------------------------------------------------------
     // Test Variables
     //--------------------------------------------------------------------------
-    reg [7:0] read_data;
-    integer   test_pass;
-    integer   test_fail;
-    integer   test_num;
+    logic [7:0] read_data;
+    int         test_pass;
+    int         test_fail;
+    int         test_num;
 
     //--------------------------------------------------------------------------
     // DUT Instantiation
@@ -73,7 +73,7 @@ module spi_regfile_tb;
     //--------------------------------------------------------------------------
     // Clock Generation
     //--------------------------------------------------------------------------
-    initial sys_clk = 0;
+    initial sys_clk = 1'b0;
     always #(SYS_CLK_PERIOD/2) sys_clk = ~sys_clk;
 
     // SPI clock is generated in tasks (not free-running)
@@ -91,112 +91,93 @@ module spi_regfile_tb;
     //--------------------------------------------------------------------------
 
     // Send a single byte over SPI
-    task spi_send_byte;
-        input [7:0] data;
-        integer i;
-        begin
-            for (i = 7; i >= 0; i = i - 1) begin
-                mosi = data[i];
-                #(SPI_CLK_PERIOD/2);
-                sclk = 1;  // Rising edge - data sampled
-                #(SPI_CLK_PERIOD/2);
-                sclk = 0;  // Falling edge - data shifted
-            end
+    task automatic spi_send_byte(input logic [7:0] data);
+        for (int i = 7; i >= 0; i--) begin
+            mosi = data[i];
+            #(SPI_CLK_PERIOD/2);
+            sclk = 1'b1;  // Rising edge - data sampled
+            #(SPI_CLK_PERIOD/2);
+            sclk = 1'b0;  // Falling edge - data shifted
         end
     endtask
 
     // Receive a single byte over SPI
-    task spi_recv_byte;
-        output [7:0] data;
-        integer i;
-        begin
-            data = 8'd0;
-            for (i = 7; i >= 0; i = i - 1) begin
-                mosi = 1'b0;  // Don't care for read
-                #(SPI_CLK_PERIOD/2);
-                sclk = 1;  // Rising edge
-                data[i] = miso;  // Capture MISO
-                #(SPI_CLK_PERIOD/2);
-                sclk = 0;  // Falling edge
-            end
+    task automatic spi_recv_byte(output logic [7:0] data);
+        data = 8'd0;
+        for (int i = 7; i >= 0; i--) begin
+            mosi = 1'b0;  // Don't care for read
+            #(SPI_CLK_PERIOD/2);
+            sclk   = 1'b1;    // Rising edge
+            data[i] = miso;   // Capture MISO
+            #(SPI_CLK_PERIOD/2);
+            sclk = 1'b0;  // Falling edge
         end
     endtask
 
     // SPI Write Transaction
-    task spi_write;
-        input [7:0] addr;
-        input [7:0] data;
-        begin
-            cs_n = 0;
-            #(SPI_CLK_PERIOD/2);
+    task automatic spi_write(input logic [7:0] addr, input logic [7:0] data);
+        cs_n = 1'b0;
+        #(SPI_CLK_PERIOD/2);
 
-            // Command byte (bit[7]=1 for write)
-            spi_send_byte(8'h80);
+        // Command byte (bit[7]=1 for write)
+        spi_send_byte(8'h80);
 
-            // Address byte
-            spi_send_byte(addr);
+        // Address byte
+        spi_send_byte(addr);
 
-            // Data byte
-            spi_send_byte(data);
+        // Data byte
+        spi_send_byte(data);
 
-            #(SPI_CLK_PERIOD/2);
-            cs_n = 1;
-            #(SPI_CLK_PERIOD);
-        end
+        #(SPI_CLK_PERIOD/2);
+        cs_n = 1'b1;
+        #(SPI_CLK_PERIOD);
     endtask
 
     // SPI Read Transaction
-    task spi_read;
-        input  [7:0] addr;
-        output [7:0] data;
-        begin
-            cs_n = 0;
-            #(SPI_CLK_PERIOD/2);
+    task automatic spi_read(input logic [7:0] addr, output logic [7:0] data);
+        cs_n = 1'b0;
+        #(SPI_CLK_PERIOD/2);
 
-            // Command byte (bit[7]=0 for read)
-            spi_send_byte(8'h00);
+        // Command byte (bit[7]=0 for read)
+        spi_send_byte(8'h00);
 
-            // Address byte
-            spi_send_byte(addr);
+        // Address byte
+        spi_send_byte(addr);
 
-            // Small delay to let address propagate to regfile
-            #1;
+        // Small delay to let address propagate to regfile
+        #1;
 
-            // Data byte (receive)
-            spi_recv_byte(data);
+        // Data byte (receive)
+        spi_recv_byte(data);
 
-            #(SPI_CLK_PERIOD/2);
-            cs_n = 1;
-            #(SPI_CLK_PERIOD);
-        end
+        #(SPI_CLK_PERIOD/2);
+        cs_n = 1'b1;
+        #(SPI_CLK_PERIOD);
     endtask
 
     //--------------------------------------------------------------------------
     // Test Utilities
     //--------------------------------------------------------------------------
-    task check_result;
-        input [7:0] expected;
-        input [7:0] actual;
-        input [255:0] test_name;
-        begin
-            test_num = test_num + 1;
-            if (expected === actual) begin
-                $display("[PASS] Test %0d: %0s - Expected: 0x%02X, Got: 0x%02X",
-                         test_num, test_name, expected, actual);
-                test_pass = test_pass + 1;
-            end else begin
-                $display("[FAIL] Test %0d: %0s - Expected: 0x%02X, Got: 0x%02X",
-                         test_num, test_name, expected, actual);
-                test_fail = test_fail + 1;
-            end
+    task automatic check_result(
+        input logic [7:0] expected,
+        input logic [7:0] actual,
+        input string      test_name
+    );
+        test_num = test_num + 1;
+        if (expected === actual) begin
+            $display("[PASS] Test %0d: %0s - Expected: 0x%02X, Got: 0x%02X",
+                     test_num, test_name, expected, actual);
+            test_pass = test_pass + 1;
+        end else begin
+            $display("[FAIL] Test %0d: %0s - Expected: 0x%02X, Got: 0x%02X",
+                     test_num, test_name, expected, actual);
+            test_fail = test_fail + 1;
         end
     endtask
 
-    task wait_cdc;
-        begin
-            // Wait for CDC to propagate (several sys_clk cycles)
-            repeat (10) @(posedge sys_clk);
-        end
+    task automatic wait_cdc();
+        // Wait for CDC to propagate (several sys_clk cycles)
+        repeat (10) @(posedge sys_clk);
     endtask
 
     //--------------------------------------------------------------------------
@@ -212,27 +193,27 @@ module spi_regfile_tb;
         test_fail = 0;
         test_num  = 0;
 
-        sclk = 0;
-        cs_n = 1;
-        mosi = 0;
-        sys_rst_n = 0;
-        status_lock = 0;
-        status_fifo_empty = 1;
-        status_fifo_full = 0;
-        status_error = 0;
+        sclk              = 1'b0;
+        cs_n              = 1'b1;
+        mosi              = 1'b0;
+        sys_rst_n         = 1'b0;
+        status_lock       = 1'b0;
+        status_fifo_empty = 1'b1;
+        status_fifo_full  = 1'b0;
+        status_error      = 1'b0;
 
         // Reset sequence
         #100;
-        sys_rst_n = 1;
+        sys_rst_n = 1'b1;
         #100;
 
         // Provide SCLK edges while CS_n high to release SCLK domain reset
         // Reset sync requires 2 SCLK edges after sys_rst_n deasserts
         repeat (4) begin
             #(SPI_CLK_PERIOD/2);
-            sclk = 1;
+            sclk = 1'b1;
             #(SPI_CLK_PERIOD/2);
-            sclk = 0;
+            sclk = 1'b0;
         end
         #100;
 
@@ -272,21 +253,21 @@ module spi_regfile_tb;
         $display("\n--- Test Group 3: CDC Config Transfer ---");
 
         // Wait for CDC to complete
-        wait_cdc;
+        wait_cdc();
 
         // Test 7-10: Check CDC transferred config values
-        check_result(8'hA5, cfg_enable, "CDC cfg_enable");
+        check_result(8'hA5, cfg_enable,  "CDC cfg_enable");
         check_result(8'h3C, cfg_clk_div, "CDC cfg_clk_div");
-        check_result(8'h0F, cfg_gain, "CDC cfg_gain");
-        check_result(8'h03, cfg_mode, "CDC cfg_mode");
+        check_result(8'h0F, cfg_gain,    "CDC cfg_gain");
+        check_result(8'h03, cfg_mode,    "CDC cfg_mode");
 
         $display("\n--- Test Group 4: RO Status Registers ---");
 
         // Set status signals
-        status_lock = 1;
-        status_fifo_empty = 0;
-        status_fifo_full = 1;
-        status_error = 1;
+        status_lock       = 1'b1;
+        status_fifo_empty = 1'b0;
+        status_fifo_full  = 1'b1;
+        status_error      = 1'b1;
 
         // Wait for status CDC
         #500;
@@ -338,8 +319,8 @@ module spi_regfile_tb;
         $display("\n--- Test Group 8: Status Change ---");
 
         // Change status signals
-        status_lock = 0;
-        status_error = 0;
+        status_lock  = 1'b0;
+        status_error = 1'b0;
 
         // Wait for CDC
         #500;
@@ -355,9 +336,9 @@ module spi_regfile_tb;
         $display("\n--- Test Group 9: Reset Behavior ---");
 
         // Apply reset
-        sys_rst_n = 0;
+        sys_rst_n = 1'b0;
         #100;
-        sys_rst_n = 1;
+        sys_rst_n = 1'b1;
         #100;
 
         // Test 22: Verify CFG_ENABLE reset to 0
@@ -369,7 +350,7 @@ module spi_regfile_tb;
         check_result(8'h01, read_data, "VERSION correct after reset");
 
         // Wait for CDC
-        wait_cdc;
+        wait_cdc();
 
         // Test 24: CDC outputs reset
         check_result(8'h00, cfg_enable, "CDC cfg_enable reset");
@@ -385,11 +366,10 @@ module spi_regfile_tb;
         $display("Failed:      %0d", test_fail);
         $display("========================================");
 
-        if (test_fail == 0) begin
+        if (test_fail == 0)
             $display("ALL TESTS PASSED!");
-        end else begin
+        else
             $display("SOME TESTS FAILED!");
-        end
 
         $display("========================================\n");
 
