@@ -136,4 +136,6 @@ git submodule update --init --recursive
 
 ## License
 
-MIT License
+MIT License — Copyright (c) 2026 [moaz khaled](https://github.com/moaz-kh).
+
+Free to use, modify, and distribute for any purpose. Attribution required — keep the copyright notice in all copies or substantial portions of the code.
