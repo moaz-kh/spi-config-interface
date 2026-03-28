@@ -77,6 +77,11 @@ ICE40_BIN = $(BITSTREAM_DIR)/$(PROJECT)_ice40.bin
 # ECP5_CONFIG = $(PNR_DIR)/$(PROJECT)_ecp5.config
 # ECP5_BIT = $(BITSTREAM_DIR)/$(PROJECT)_ecp5.bit
 
+# Register file generator
+REGMAP_CSV  ?= sources/regmap/regfile.csv
+REGFILE_SV  ?= sources/rtl/regfile.sv
+GEN_SCRIPT  ?= scripts/gen_regfile.py
+
 # Default target
 .PHONY: help
 help:
@@ -117,6 +122,7 @@ help:
 	@echo "Complete workflow targets:"
 	@echo "  all           - Complete flow for current family: synth -> pnr -> bitstream"
 	@echo "  quick-test    - Update list and run simulation"
+	@echo "  gen-regfile   - Generate regfile.sv from sources/regmap/regfile.csv"
 	@echo ""
 	@echo "=== FPGA WORKFLOW TARGETS ==="
 	@echo ""
@@ -211,6 +217,11 @@ endif
 	@echo "  INFO: ECP5, Intel, Xilinx tools will be checked when implemented"
 
 # === FILE LIST MANAGEMENT ===
+
+.PHONY: gen-regfile
+gen-regfile:
+	@echo "=== Generating Register File ==="
+	@python3 $(GEN_SCRIPT) --input $(REGMAP_CSV) --output $(REGFILE_SV)
 
 .PHONY: update_list
 update_list:

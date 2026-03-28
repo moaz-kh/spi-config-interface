@@ -1,0 +1,30 @@
+addr,name,type,reset_value,field_bits,port_name,description
+0x00,VERSION,RO_CONST,0x01,7:0,,Version register - fixed constant 0x01
+0x01,CFG_ENABLE,RW,0x00,7:0,cfg_enable,Enable configuration register
+0x02,CFG_CLK_DIV,RW,0x00,7:0,cfg_clk_div,Clock divider configuration register
+0x03,CFG_THRESH,RW,0x1A,7:0,cfg_thresh,Threshold register with non-zero reset (case 1)
+0x04,reserved,RW,0x00,7:0,RSV,reserved
+0x05,CFG_CTRL,RW,0x00,7:4,cfg_ctrl,Control bits
+0x05,STATUS_BUSY,RO,0x00,3,status_busy,Busy flag
+0x05,reserved,,,2:0,,Reserved
+0x06,reserved,RW,0x00,7:0,RSV,reserved
+0x07,CFG_TX_EN,RW,0x01,7,cfg_tx_en,TX enable - single-bit MSB (cases 2 3)
+0x07,CFG_RX_EN,RW,0x01,6,cfg_rx_en,RX enable - single-bit
+0x07,reserved,,,5:3,,Implicit gap
+0x07,CFG_LANE_SEL,RW,0x00,2:1,cfg_lane_sel,Lane select - middle bits (case 3)
+0x07,CFG_LOOPBACK,RW,0x00,0,cfg_loopback,Loopback enable - single-bit LSB (case 3)
+0x08,STATUS_CODE,RO,0x00,7:4,status_code,4-bit status code (case 5)
+0x08,HW_REV,RO_CONST,0x03,3:0,,Hardware revision constant (case 6)
+0x09,CFG_GAIN_FINE,RW,0x00,7:5,cfg_gain_fine,Fine gain adjust (case 7 - three-way mix)
+0x09,STATUS_TEMP_WARN,RO,0x00,4,status_temp_warn,Temperature warning (case 7)
+0x09,HW_VARIANT,RO_CONST,0x02,3:2,,Hardware variant ID (case 7)
+0x09,reserved,,,1:0,,Reserved
+0x0A,STATUS_FLAGS,RO,0x00,7:0,status_flags,Full-byte RO register (case 8)
+0x0B,STATUS_RX_ERR,RO,0x00,7:4,status_rx_err,RX error code (case 9)
+0x0B,STATUS_TX_ERR,RO,0x00,3:0,status_tx_err,TX error code (case 9)
+0x80,STATUS_LOCK,RO,0x00,0,status_lock,PLL lock status - bit[0] only
+0x81,STATUS_FIFO_EMPTY,RO,0x00,0,status_fifo_empty,FIFO empty status - bit[0] only
+0x82,STATUS_FIFO_FULL,RO,0x00,0,status_fifo_full,FIFO full status - bit[0] only
+0x83,STATUS_ERROR,RO,0x00,0,status_error,Error status - bit[0] only
+0x84,CFG_GAIN,RW,0x00,7:0,cfg_gain,Gain configuration register
+0x85,CFG_MODE,RW,0x00,7:0,cfg_mode,Mode configuration register
